@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>지뢰찾기</title>
+<style>
+  :root {
+    --bg: #1e2130;
+    --panel: #2a2f45;
+    --cell: #3a4060;
+    --cell-hover: #464d73;
+    --revealed: #22273b;
+    --border-light: #4a5178;
+    --border-dark: #161927;
+    --text: #e8eaf5;
+    --accent: #ffcc4d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    background: linear-gradient(160deg, #1e2130, #12141f);
+    color: #e8eaf5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 20px 64px;
+    user-select: none;
+  }
+  .home-nav {
+    position: fixed; top: 16px; left: 16px; z-index: 20;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.82rem; color: #e8eaf5; text-decoration: none;
+    background: rgba(42,47,69,0.7); border: 1px solid #4a5178;
+    padding: 9px 15px; border-radius: 10px;
+    backdrop-filter: blur(6px);
+    transition: border-color .15s, transform .12s, background .15s;
+  }
+  .home-nav:hover { border-color: #ffcc4d; transform: translateY(-1px); background: rgba(54,60,88,0.8); }
+  .home-nav:focus-visible { outline: 2px solid #ffcc4d; outline-offset: 2px; }
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+    color: #ffcc4d;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .controls button {
+    background: #2a2f45;
+    color: #e8eaf5;
+    border: 1px solid #4a5178;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+  }
+  .controls button:hover { background: #363c58; }
+  .controls button.active {
+    background: #ffcc4d;
+    color: #1e2130;
+    border-color: #ffcc4d;
+    font-weight: 600;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: #2a2f45;
+    padding: 10px 18px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    min-width: 280px;
+  }
+  .status .item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .reset-btn {
+    font-size: 1.6rem;
+    background: #3a4060;
+    border: none;
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .reset-btn:hover { transform: scale(1.1); }
+  .reset-btn:active { transform: scale(0.95); }
+  #board {
+    display: grid;
+    gap: 3px;
+    background: #161927;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+  .cell {
+    width: 32px;
+    height: 32px;
+    background: #3a4060;
+    border-top: 2px solid #4a5178;
+    border-left: 2px solid #4a5178;
+    border-bottom: 2px solid #161927;
+    border-right: 2px solid #161927;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .cell:hover:not(.revealed) { background: #464d73; }
+  .cell.revealed {
+    background: #22273b;
+    border: 2px solid #1a1e2e;
+    cursor: default;
+  }
+  .cell.mine { background: #c0392b; }
+  .cell.mine-hit { background: #e74c3c; }
+  .cell.flagged { background: #2f3550; }
+  .c1 { color: #5da9ff; }
+  .c2 { color: #4dd07a; }
+  .c3 { color: #ff6b6b; }
+  .c4 { color: #b388ff; }
+  .c5 { color: #ff9f43; }
+  .c6 { color: #4dd0e1; }
+  .c7 { color: #e8eaf5; }
+  .c8 { color: #95a5a6; }
+  .message {
+    margin-top: 16px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    min-height: 28px;
+    text-align: center;
+  }
+  .message.win { color: #4dd07a; }
+  .message.lose { color: #ff6b6b; }
+  .hint {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #8890b5;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <a class="home-nav" href="index.html">← 게임 모음</a>
+  <h1>💣 지뢰찾기</h1>
+
+  <div class="controls">
+    <button data-level="easy" class="active">쉬움 (9×9)</button>
+    <button data-level="medium">보통 (16×16)</button>
+    <button data-level="hard">어려움 (16×30)</button>
+  </div>
+
+  <div class="status">
+    <div class="item">🚩 <span id="mineCount">0</span></div>
+    <button class="reset-btn" id="resetBtn">🙂</button>
+    <div class="item">⏱️ <span id="timer">0</span></div>
+  </div>
+
+  <div id="board"></div>
+
+  <div class="message" id="message"></div>
+  <div class="hint">좌클릭: 열기 · 우클릭: 깃발 · 숫자 더블클릭(양쪽클릭): 주변 열기</div>
+
+<script>
+const LEVELS = {
+  easy:   { rows: 9,  cols: 9,  mines: 10 },
+  medium: { rows: 16, cols: 16, mines: 40 },
+  hard:   { rows: 16, cols: 30, mines: 99 },
+};
+
+let config = LEVELS.easy;
+let grid = [];
+let revealedCount = 0;
+let flagCount = 0;
+let gameOver = false;
+let firstClick = true;
+let timerInterval = null;
+let seconds = 0;
+
+const boardEl = document.getElementById('board');
+const mineCountEl = document.getElementById('mineCount');
+const timerEl = document.getElementById('timer');
+const messageEl = document.getElementById('message');
+const resetBtn = document.getElementById('resetBtn');
+
+function initGame() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  seconds = 0;
+  timerEl.textContent = '0';
+  revealedCount = 0;
+  flagCount = 0;
+  gameOver = false;
+  firstClick = true;
+  messageEl.textContent = '';
+  messageEl.className = 'message';
+  resetBtn.textContent = '🙂';
+  mineCountEl.textContent = config.mines;
+
+  grid = [];
+  for (let r = 0; r < config.rows; r++) {
+    const row = [];
+    for (let c = 0; c < config.cols; c++) {
+      row.push({ mine: false, revealed: false, flagged: false, adjacent: 0, el: null });
+    }
+    grid.push(row);
+  }
+
+  boardEl.style.gridTemplateColumns = `repeat(${config.cols}, 32px)`;
+  boardEl.innerHTML = '';
+  for (let r = 0; r < config.rows; r++) {
+    for (let c = 0; c < config.cols; c++) {
+      const el = document.createElement('div');
+      el.className = 'cell';
+      el.dataset.r = r;
+      el.dataset.c = c;
+      el.addEventListener('click', onLeftClick);
+      el.addEventListener('contextmenu', onRightClick);
+      el.addEventListener('dblclick', onChord);
+      grid[r][c].el = el;
+      boardEl.appendChild(el);
+    }
+  }
+}
+
+function placeMines(safeR, safeC) {
+  let placed = 0;
+  const forbidden = new Set();
+  // 첫 클릭 칸과 그 주변은 지뢰 없음
+  for (const [dr, dc] of neighbors()) {
+    const nr = safeR + dr, nc = safeC + dc;
+    if (inBounds(nr, nc)) forbidden.add(nr + ',' + nc);
+  }
+  forbidden.add(safeR + ',' + safeC);
+
+  while (placed < config.mines) {
+    const r = Math.floor(Math.random() * config.rows);
+    const c = Math.floor(Math.random() * config.cols);
+    if (grid[r][c].mine || forbidden.has(r + ',' + c)) continue;
+    grid[r][c].mine = true;
+    placed++;
+  }
+
+  for (let r = 0; r < config.rows; r++) {
+    for (let c = 0; c < config.cols; c++) {
+      if (grid[r][c].mine) continue;
+      let count = 0;
+      for (const [dr, dc] of neighbors()) {
+        const nr = r + dr, nc = c + dc;
+        if (inBounds(nr, nc) && grid[nr][nc].mine) count++;
+      }
+      grid[r][c].adjacent = count;
+    }
+  }
+}
+
+function neighbors() {
+  return [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+}
+
+function inBounds(r, c) {
+  return r >= 0 && r < config.rows && c >= 0 && c < config.cols;
+}
+
+function startTimer() {
+  if (timerInterval) return;
+  timerInterval = setInterval(() => {
+    seconds++;
+    timerEl.textContent = seconds;
+  }, 1000);
+}
+
+function onLeftClick(e) {
+  if (gameOver) return;
+  const r = +e.currentTarget.dataset.r;
+  const c = +e.currentTarget.dataset.c;
+  const cell = grid[r][c];
+  if (cell.revealed || cell.flagged) return;
+
+  if (firstClick) {
+    placeMines(r, c);
+    firstClick = false;
+    startTimer();
+  }
+
+  if (cell.mine) {
+    revealCell(cell, true);
+    loseGame(cell);
+    return;
+  }
+
+  floodReveal(r, c);
+  checkWin();
+}
+
+function onRightClick(e) {
+  e.preventDefault();
+  if (gameOver) return;
+  const r = +e.currentTarget.dataset.r;
+  const c = +e.currentTarget.dataset.c;
+  const cell = grid[r][c];
+  if (cell.revealed) return;
+
+  cell.flagged = !cell.flagged;
+  flagCount += cell.flagged ? 1 : -1;
+  cell.el.classList.toggle('flagged', cell.flagged);
+  cell.el.textContent = cell.flagged ? '🚩' : '';
+  mineCountEl.textContent = config.mines - flagCount;
+}
+
+function onChord(e) {
+  if (gameOver) return;
+  const r = +e.currentTarget.dataset.r;
+  const c = +e.currentTarget.dataset.c;
+  const cell = grid[r][c];
+  if (!cell.revealed || cell.adjacent === 0) return;
+
+  let flags = 0;
+  for (const [dr, dc] of neighbors()) {
+    const nr = r + dr, nc = c + dc;
+    if (inBounds(nr, nc) && grid[nr][nc].flagged) flags++;
+  }
+  if (flags !== cell.adjacent) return;
+
+  for (const [dr, dc] of neighbors()) {
+    const nr = r + dr, nc = c + dc;
+    if (!inBounds(nr, nc)) continue;
+    const n = grid[nr][nc];
+    if (n.flagged || n.revealed) continue;
+    if (n.mine) {
+      revealCell(n, true);
+      loseGame(n);
+      return;
+    }
+    floodReveal(nr, nc);
+  }
+  checkWin();
+}
+
+function floodReveal(r, c) {
+  const cell = grid[r][c];
+  if (cell.revealed || cell.flagged || cell.mine) return;
+  revealCell(cell, false);
+
+  if (cell.adjacent === 0) {
+    for (const [dr, dc] of neighbors()) {
+      const nr = r + dr, nc = c + dc;
+      if (inBounds(nr, nc) && !grid[nr][nc].revealed) {
+        floodReveal(nr, nc);
+      }
+    }
+  }
+}
+
+function revealCell(cell, isMineHit) {
+  if (!cell.revealed) {
+    cell.revealed = true;
+    if (!cell.mine) revealedCount++;
+  }
+  cell.el.classList.add('revealed');
+  cell.el.classList.remove('flagged');
+
+  if (cell.mine) {
+    cell.el.classList.add(isMineHit ? 'mine-hit' : 'mine');
+    cell.el.textContent = '💣';
+  } else if (cell.adjacent > 0) {
+    cell.el.textContent = cell.adjacent;
+    cell.el.classList.add('c' + cell.adjacent);
+  } else {
+    cell.el.textContent = '';
+  }
+}
+
+function loseGame(hitCell) {
+  gameOver = true;
+  clearInterval(timerInterval);
+  resetBtn.textContent = '😵';
+  messageEl.textContent = '💥 지뢰를 밟았습니다! 게임 오버';
+  messageEl.className = 'message lose';
+
+  for (let r = 0; r < config.rows; r++) {
+    for (let c = 0; c < config.cols; c++) {
+      const cell = grid[r][c];
+      if (cell.mine && cell !== hitCell) {
+        revealCell(cell, false);
+      } else if (!cell.mine && cell.flagged) {
+        cell.el.textContent = '❌';
+      }
+    }
+  }
+}
+
+function checkWin() {
+  const totalSafe = config.rows * config.cols - config.mines;
+  if (revealedCount === totalSafe) {
+    gameOver = true;
+    clearInterval(timerInterval);
+    resetBtn.textContent = '😎';
+    messageEl.textContent = `🎉 승리! ${seconds}초 만에 클리어!`;
+    messageEl.className = 'message win';
+
+    // 남은 지뢰 자동 깃발 표시
+    for (let r = 0; r < config.rows; r++) {
+      for (let c = 0; c < config.cols; c++) {
+        const cell = grid[r][c];
+        if (cell.mine && !cell.flagged) {
+          cell.flagged = true;
+          cell.el.classList.add('flagged');
+          cell.el.textContent = '🚩';
+        }
+      }
+    }
+    mineCountEl.textContent = 0;
+  }
+}
+
+// 난이도 버튼
+document.querySelectorAll('.controls button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    config = LEVELS[btn.dataset.level];
+    initGame();
+  });
+});
+
+resetBtn.addEventListener('click', initGame);
+
+// 전체 우클릭 메뉴 방지
+boardEl.addEventListener('contextmenu', e => e.preventDefault());
+
+initGame();
+</script>
+</body>
+</html>

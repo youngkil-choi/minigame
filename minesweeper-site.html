@@ -1,0 +1,786 @@
+<title>지뢰찾기 — 심야의 지뢰밭</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ground: #0d0f18;
+    --ground-2: #10131f;
+    --panel: #161a28;
+    --panel-2: #1c2132;
+    --cell: #232a3e;
+    --cell-line: #313a56;
+    --accent: #ffcc4d;
+    --accent-dim: #c9a53d;
+    --danger: #ff5a4d;
+    --text: #e9ecf8;
+    --muted: #8b93b8;
+    --faint: #5b6488;
+    --c1: #5da9ff; --c2: #4dd07a; --c3: #ff6b6b; --c4: #b388ff;
+    --c5: #ff9f43; --c6: #4dd0e1; --c7: #dfe3f2; --c8: #95a5a6;
+    --mono: ui-monospace, "Cascadia Code", "Consolas", "SFMono-Regular", monospace;
+    --sans: "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    --maxw: 1080px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--accent); color: #14131c; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  .home-nav {
+    position: fixed; top: 16px; left: 16px; z-index: 20;
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 0.82rem; color: var(--text);
+    background: rgba(22,26,40,0.7); border: 1px solid var(--cell-line);
+    padding: 9px 15px; border-radius: 10px; backdrop-filter: blur(6px);
+    transition: border-color .15s, transform .12s, background .15s;
+  }
+  .home-nav:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .home-nav:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--accent-dim);
+  }
+  h2 {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: clamp(1.6rem, 3.5vw, 2.3rem);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 10px 0 8px;
+  }
+  .section-lead { color: var(--muted); max-width: 60ch; }
+
+  /* ---------- HERO ---------- */
+  .hero { position: relative; padding: 96px 0 72px; overflow: hidden; }
+  #grid-canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.5;
+    mask-image: radial-gradient(120% 90% at 70% 20%, #000 30%, transparent 78%);
+    -webkit-mask-image: radial-gradient(120% 90% at 70% 20%, #000 30%, transparent 78%);
+  }
+  .hero::after {
+    content: "";
+    position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(180deg, transparent 55%, var(--ground) 100%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; z-index: 2; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 0.74rem;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--cell-line);
+    background: rgba(22,26,40,0.6);
+    backdrop-filter: blur(6px);
+    padding: 7px 14px; border-radius: 999px;
+  }
+  .hero-badge .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--danger); box-shadow: 0 0 10px var(--danger);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  h1 {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: clamp(3rem, 10vw, 6.5rem);
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    margin: 22px 0 0;
+    text-wrap: balance;
+  }
+  h1 .flag { color: var(--accent); }
+  .hero p.tag {
+    margin: 22px 0 0;
+    font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+    color: var(--muted);
+    max-width: 46ch;
+  }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; }
+  .btn {
+    font-family: var(--mono); font-size: 0.92rem; font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 14px 26px; border-radius: 12px;
+    cursor: pointer; border: 1px solid transparent;
+    transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .btn-primary {
+    background: var(--accent); color: #14131c;
+    box-shadow: 0 8px 30px rgba(255,204,77,0.28);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(255,204,77,0.42); }
+  .btn-ghost {
+    background: rgba(28,33,50,0.6); color: var(--text);
+    border-color: var(--cell-line);
+  }
+  .btn-ghost:hover { transform: translateY(-2px); border-color: var(--accent-dim); }
+  .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+  /* ---------- STAT STRIP ---------- */
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px; background: var(--cell-line);
+    border: 1px solid var(--cell-line); border-radius: 16px;
+    overflow: hidden; margin-top: 8px;
+  }
+  .stat { background: var(--panel); padding: 26px 22px; }
+  .stat .num {
+    font-family: var(--mono); font-weight: 700;
+    font-size: 2rem; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .lbl { color: var(--muted); font-size: 0.86rem; margin-top: 4px; }
+
+  section { padding: 76px 0; }
+  .section-head { margin-bottom: 40px; }
+
+  /* ---------- FEATURES ---------- */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    background: linear-gradient(180deg, var(--panel), var(--ground-2));
+    border: 1px solid var(--cell-line);
+    border-radius: 16px; padding: 28px 24px;
+    transition: transform .18s ease, border-color .18s ease;
+  }
+  .card:hover { transform: translateY(-4px); border-color: var(--accent-dim); }
+  .card .ic {
+    width: 44px; height: 44px; border-radius: 11px;
+    display: grid; place-items: center; font-size: 1.4rem;
+    background: rgba(255,204,77,0.12); border: 1px solid rgba(255,204,77,0.25);
+    margin-bottom: 16px;
+  }
+  .card h3 { font-family: var(--mono); font-size: 1.1rem; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 0.94rem; }
+
+  /* ---------- HOW TO PLAY ---------- */
+  .howto { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: start; }
+  .controls-list { display: flex; flex-direction: column; gap: 14px; }
+  .ctrl {
+    display: flex; gap: 16px; align-items: center;
+    background: var(--panel); border: 1px solid var(--cell-line);
+    border-radius: 12px; padding: 16px 18px;
+  }
+  .ctrl .key {
+    font-family: var(--mono); font-size: 0.8rem; font-weight: 600;
+    color: var(--accent); white-space: nowrap;
+    border: 1px solid var(--accent-dim); border-radius: 8px;
+    padding: 8px 12px; min-width: 116px; text-align: center;
+    background: rgba(255,204,77,0.06);
+  }
+  .ctrl .desc { color: var(--muted); font-size: 0.92rem; }
+  .ctrl .desc b { color: var(--text); font-weight: 600; }
+
+  .legend {
+    background: var(--panel); border: 1px solid var(--cell-line);
+    border-radius: 16px; padding: 24px;
+  }
+  .legend h3 { font-family: var(--mono); font-size: 0.95rem; margin-bottom: 4px; }
+  .legend p { color: var(--faint); font-size: 0.82rem; margin-bottom: 18px; }
+  .legend-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .lc {
+    aspect-ratio: 1; border-radius: 8px;
+    background: #1a2033; border: 2px solid #12172a;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 700; font-size: 1.15rem;
+  }
+  .lc.n1{color:var(--c1)} .lc.n2{color:var(--c2)} .lc.n3{color:var(--c3)} .lc.n4{color:var(--c4)}
+  .lc.n5{color:var(--c5)} .lc.n6{color:var(--c6)} .lc.n7{color:var(--c7)} .lc.n8{color:var(--c8)}
+
+  /* ---------- DIFFICULTY ---------- */
+  .tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .tier {
+    position: relative; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--cell-line);
+    border-radius: 16px; padding: 28px 24px;
+  }
+  .tier .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .tier.t1 .rail { background: var(--c2); }
+  .tier.t2 .rail { background: var(--c5); }
+  .tier.t3 .rail { background: var(--danger); }
+  .tier .name { font-family: var(--mono); font-size: 1.25rem; font-weight: 700; }
+  .tier .dim { font-family: var(--mono); color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
+  .tier .split { height: 1px; background: var(--cell-line); margin: 18px 0; }
+  .tier .row { display: flex; justify-content: space-between; font-size: 0.9rem; padding: 5px 0; }
+  .tier .row span:first-child { color: var(--muted); }
+  .tier .row span:last-child { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .tier .density {
+    font-family: var(--mono); font-size: 0.82rem; margin-top: 14px;
+    color: var(--faint);
+  }
+
+  /* ---------- PLAYABLE DEMO ---------- */
+  .demo-shell {
+    background: radial-gradient(120% 140% at 50% 0%, var(--panel-2), var(--ground-2));
+    border: 1px solid var(--cell-line);
+    border-radius: 20px; padding: 28px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .demo-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 18px; width: 100%; max-width: 520px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .diff-pills { display: flex; gap: 6px; }
+  .diff-pills button {
+    font-family: var(--mono); font-size: 0.78rem;
+    background: var(--panel); color: var(--muted);
+    border: 1px solid var(--cell-line); border-radius: 8px;
+    padding: 8px 12px; cursor: pointer; transition: all .15s;
+  }
+  .diff-pills button.active { background: var(--accent); color: #14131c; border-color: var(--accent); font-weight: 700; }
+  .diff-pills button:not(.active):hover { border-color: var(--accent-dim); color: var(--text); }
+  .readouts { display: flex; align-items: center; gap: 14px; }
+  .readout {
+    font-family: var(--mono); font-weight: 700; font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    background: #0a0c14; border: 1px solid var(--cell-line);
+    color: var(--danger); border-radius: 8px; padding: 6px 12px;
+    min-width: 64px; text-align: center; letter-spacing: 0.04em;
+  }
+  #resetBtn {
+    font-size: 1.5rem; background: var(--cell); border: 1px solid var(--cell-line);
+    width: 44px; height: 44px; border-radius: 10px; cursor: pointer; transition: transform .1s;
+  }
+  #resetBtn:hover { transform: scale(1.08); }
+  #resetBtn:active { transform: scale(0.94); }
+  #board {
+    display: grid; gap: 3px; background: #0a0c14;
+    padding: 10px; border-radius: 12px;
+    box-shadow: inset 0 2px 20px rgba(0,0,0,0.6);
+    max-width: 100%; overflow-x: auto;
+  }
+  .cell {
+    width: 30px; height: 30px;
+    background: var(--cell);
+    border-top: 2px solid var(--cell-line);
+    border-left: 2px solid var(--cell-line);
+    border-bottom: 2px solid #10131f;
+    border-right: 2px solid #10131f;
+    border-radius: 4px;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: background .1s;
+  }
+  .cell:hover:not(.revealed) { background: #2c344c; }
+  .cell.revealed { background: #171d2e; border: 2px solid #10152340; cursor: default; }
+  .cell.mine { background: #7a2a24; }
+  .cell.mine-hit { background: var(--danger); }
+  .cell.flagged { background: #2a3150; }
+  .cell.n1{color:var(--c1)} .cell.n2{color:var(--c2)} .cell.n3{color:var(--c3)} .cell.n4{color:var(--c4)}
+  .cell.n5{color:var(--c5)} .cell.n6{color:var(--c6)} .cell.n7{color:var(--c7)} .cell.n8{color:var(--c8)}
+  .demo-msg { margin-top: 18px; font-family: var(--mono); font-weight: 700; min-height: 24px; text-align: center; }
+  .demo-msg.win { color: var(--c2); }
+  .demo-msg.lose { color: var(--danger); }
+  .demo-hint { margin-top: 8px; color: var(--faint); font-size: 0.8rem; text-align: center; }
+
+  /* ---------- LOCAL FILE NOTE ---------- */
+  .filebox {
+    display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center;
+    background: linear-gradient(180deg, var(--panel), var(--ground-2));
+    border: 1px solid var(--cell-line); border-radius: 16px; padding: 26px 28px;
+  }
+  .filebox .big { font-size: 2.4rem; }
+  .filebox code {
+    font-family: var(--mono); font-size: 0.86rem; color: var(--accent);
+    background: #0a0c14; border: 1px solid var(--cell-line);
+    padding: 3px 8px; border-radius: 6px;
+  }
+  .filebox p { color: var(--muted); font-size: 0.94rem; }
+
+  /* ---------- FOOTER ---------- */
+  footer { border-top: 1px solid var(--cell-line); padding: 40px 0 56px; }
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .foot .brand { font-family: var(--mono); font-weight: 700; letter-spacing: 0.04em; }
+  .foot .brand .flag { color: var(--accent); }
+  .foot small { color: var(--faint); font-family: var(--mono); font-size: 0.78rem; }
+
+  @media (max-width: 860px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .features { grid-template-columns: 1fr; }
+    .howto { grid-template-columns: 1fr; }
+    .tiers { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 460px) {
+    .legend-grid { grid-template-columns: repeat(4, 1fr); }
+    .filebox { grid-template-columns: 1fr; text-align: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+
+<a class="home-nav" href="index.html">← 게임 모음</a>
+
+<div class="hero">
+  <canvas id="grid-canvas"></canvas>
+  <div class="wrap">
+    <span class="hero-badge"><span class="dot"></span>Logic · Tension · Deduction</span>
+    <h1>지<span class="flag">뢰</span>찾기</h1>
+    <p class="tag">한 칸 한 칸이 확률이 아니라 논리입니다. 숫자를 읽고, 지뢰를 추론하고, 밭 전체를 안전하게 걷어내세요.</p>
+    <div class="cta-row">
+      <a href="#play" class="btn btn-primary">▶ 지금 플레이</a>
+      <a href="#howto" class="btn btn-ghost">게임 방식 보기</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="num" data-count="3">3</div><div class="lbl">난이도 단계</div></div>
+    <div class="stat"><div class="num" data-count="99">99</div><div class="lbl">최대 지뢰 수</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">필요한 설치</div></div>
+    <div class="stat"><div class="num">100%</div><div class="lbl">첫 클릭 안전</div></div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">What makes it click</span>
+      <h2>단순한 규칙, 깊은 추론</h2>
+      <p class="section-lead">클래식 지뢰찾기의 본질은 유지하면서, 현대적인 조작감과 편의 기능을 더했습니다.</p>
+    </div>
+    <div class="features">
+      <div class="card">
+        <div class="ic">🛡️</div>
+        <h3>첫 클릭 안전 보장</h3>
+        <p>지뢰는 첫 클릭 이후에 배치됩니다. 처음 연 칸과 그 주변은 항상 안전해, 운으로 즉사하는 일이 없습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ic">⚡</div>
+        <h3>양쪽 클릭 코드</h3>
+        <p>깃발을 다 꽂은 숫자를 더블클릭하면 주변 안전 칸이 한 번에 열립니다. 후반부 진행 속도가 확 빨라집니다.</p>
+      </div>
+      <div class="card">
+        <div class="ic">🌊</div>
+        <h3>빈 칸 자동 확장</h3>
+        <p>주변에 지뢰가 없는 칸을 열면 연결된 빈 영역이 물결처럼 펼쳐집니다. 넓은 안전지대를 단숨에 개척하세요.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="howto">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">How to play</span>
+      <h2>세 가지 조작, 여덟 개의 단서</h2>
+      <p class="section-lead">숫자는 인접한 8칸 중 지뢰가 몇 개인지 알려줍니다. 색으로 개수를 빠르게 구분하세요.</p>
+    </div>
+    <div class="howto">
+      <div class="controls-list">
+        <div class="ctrl">
+          <span class="key">좌클릭</span>
+          <span class="desc"><b>칸 열기.</b> 지뢰면 게임 오버, 숫자면 주변 지뢰 개수, 빈 칸이면 자동 확장.</span>
+        </div>
+        <div class="ctrl">
+          <span class="key">우클릭</span>
+          <span class="desc"><b>깃발 표시.</b> 지뢰가 의심되는 칸을 표시하고, 다시 누르면 해제됩니다.</span>
+        </div>
+        <div class="ctrl">
+          <span class="key">숫자 더블클릭</span>
+          <span class="desc"><b>주변 열기(코드).</b> 인접 깃발 수가 숫자와 같으면 나머지 칸을 한 번에 엽니다.</span>
+        </div>
+        <div class="ctrl">
+          <span class="key">🚩 &nbsp;/&nbsp; ⏱️</span>
+          <span class="desc"><b>상태 표시.</b> 남은 지뢰 추정 수와 경과 시간을 실시간으로 확인합니다.</span>
+        </div>
+      </div>
+      <div class="legend">
+        <h3>숫자 색상 범례</h3>
+        <p>인접한 지뢰 개수 · 1부터 8까지</p>
+        <div class="legend-grid">
+          <div class="lc n1">1</div><div class="lc n2">2</div><div class="lc n3">3</div><div class="lc n4">4</div>
+          <div class="lc n5">5</div><div class="lc n6">6</div><div class="lc n7">7</div><div class="lc n8">8</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tiers">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Difficulty</span>
+      <h2>발밑의 긴장을 고르세요</h2>
+      <p class="section-lead">보드가 넓어질수록 지뢰 밀도도 올라갑니다. 아래 데모에서 즉시 바꿔볼 수 있습니다.</p>
+    </div>
+    <div class="tiers">
+      <div class="tier t1">
+        <div class="rail"></div>
+        <div class="name">쉬움</div>
+        <div class="dim">9 × 9</div>
+        <div class="split"></div>
+        <div class="row"><span>지뢰</span><span>10개</span></div>
+        <div class="row"><span>총 칸 수</span><span>81칸</span></div>
+        <div class="density">밀도 ≈ 12.3% · 입문용</div>
+      </div>
+      <div class="tier t2">
+        <div class="rail"></div>
+        <div class="name">보통</div>
+        <div class="dim">16 × 16</div>
+        <div class="split"></div>
+        <div class="row"><span>지뢰</span><span>40개</span></div>
+        <div class="row"><span>총 칸 수</span><span>256칸</span></div>
+        <div class="density">밀도 ≈ 15.6% · 표준</div>
+      </div>
+      <div class="tier t3">
+        <div class="rail"></div>
+        <div class="name">어려움</div>
+        <div class="dim">16 × 30</div>
+        <div class="split"></div>
+        <div class="row"><span>지뢰</span><span>99개</span></div>
+        <div class="row"><span>총 칸 수</span><span>480칸</span></div>
+        <div class="density">밀도 ≈ 20.6% · 전문가</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="play">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Live demo</span>
+      <h2>바로 지금, 여기서</h2>
+      <p class="section-lead">설치도 다운로드도 필요 없습니다. 아래 보드에서 실제 게임을 플레이해보세요.</p>
+    </div>
+    <div class="demo-shell">
+      <div class="demo-bar">
+        <div class="diff-pills">
+          <button data-level="easy" class="active">쉬움</button>
+          <button data-level="medium">보통</button>
+          <button data-level="hard">어려움</button>
+        </div>
+        <div class="readouts">
+          <div class="readout" id="mineCount">010</div>
+          <button id="resetBtn" title="새 게임">🙂</button>
+          <div class="readout" id="timer">000</div>
+        </div>
+      </div>
+      <div id="board"></div>
+      <div class="demo-msg" id="message"></div>
+      <div class="demo-hint">좌클릭 열기 · 우클릭 깃발 · 숫자 더블클릭으로 주변 열기</div>
+    </div>
+  </div>
+</section>
+
+<section id="download" style="padding-top:0;">
+  <div class="wrap">
+    <div class="filebox">
+      <div class="big">💾</div>
+      <div>
+        <p style="color:var(--text);font-family:var(--mono);margin-bottom:6px;">오프라인 버전도 있습니다</p>
+        <p>이 프로젝트에는 단일 파일 게임 <code>minesweeper.html</code> 이 함께 들어 있습니다. 더블클릭 한 번으로 브라우저에서 열리며, 인터넷 연결 없이도 완전히 동작합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <div class="brand">지<span class="flag">뢰</span>찾기</div>
+    <small>Built with vanilla HTML · CSS · JavaScript &nbsp;·&nbsp; 첫 클릭 안전 · 코드 지원 · 3단계 난이도</small>
+  </div>
+</footer>
+
+<script>
+/* ===== 히어로 배경: 자동으로 열리는 지뢰밭 캔버스 ===== */
+(function () {
+  const canvas = document.getElementById('grid-canvas');
+  const ctx = canvas.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SIZE = 34, GAP = 4;
+  let cols, rows, cells, W, H, dpr;
+
+  function build() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cols = Math.ceil(W / (SIZE + GAP)) + 1;
+    rows = Math.ceil(H / (SIZE + GAP)) + 1;
+    cells = [];
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++) {
+        const rnd = Math.random();
+        cells.push({
+          r, c,
+          revealed: 0,           // 0..1
+          target: 0,
+          mine: rnd < 0.10,
+          num: rnd < 0.10 ? 0 : (rnd < 0.55 ? 0 : Math.ceil(Math.random() * 6)),
+          delay: 0
+        });
+      }
+  }
+
+  const NUMCOL = ['', '#5da9ff', '#4dd07a', '#ff6b6b', '#b388ff', '#ff9f43', '#4dd0e1'];
+
+  function wave() {
+    // 임의 지점에서 물결처럼 열림 → 잠시 후 닫힘
+    const ox = Math.random() * cols, oy = Math.random() * rows;
+    cells.forEach(cell => {
+      const d = Math.hypot(cell.c - ox, cell.r - oy);
+      cell.delay = d * 70;
+      cell.target = 1;
+      setTimeout(() => { cell.target = 1; }, cell.delay);
+      setTimeout(() => { cell.target = 0; }, cell.delay + 2600);
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    for (const cell of cells) {
+      cell.revealed += (cell.target - cell.revealed) * 0.08;
+      const x = cell.c * (SIZE + GAP), y = cell.r * (SIZE + GAP);
+      const rv = cell.revealed;
+      // 닫힌 칸
+      ctx.fillStyle = '#232a3e';
+      roundRect(x, y, SIZE, SIZE, 5); ctx.fill();
+      if (rv > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = rv;
+        ctx.fillStyle = cell.mine ? '#7a2a24' : '#171d2e';
+        roundRect(x, y, SIZE, SIZE, 5); ctx.fill();
+        if (cell.mine) {
+          ctx.fillStyle = '#ff5a4d';
+          ctx.beginPath(); ctx.arc(x + SIZE/2, y + SIZE/2, 6, 0, 7); ctx.fill();
+        } else if (cell.num > 0) {
+          ctx.fillStyle = NUMCOL[cell.num];
+          ctx.font = '700 16px ui-monospace, Consolas, monospace';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(cell.num, x + SIZE/2, y + SIZE/2 + 1);
+        }
+        ctx.restore();
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  build();
+  if (reduce) {
+    // 정적 스냅샷: 일부만 열어 둠
+    cells.forEach(c => { c.target = Math.random() < 0.4 ? 1 : 0; c.revealed = c.target; });
+    draw();
+  } else {
+    draw();
+    wave();
+    setInterval(wave, 3400);
+  }
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 200); });
+})();
+
+/* ===== 스탯 카운트업 ===== */
+(function () {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const els = document.querySelectorAll('.stat .num[data-count]');
+  if (reduce) return;
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target, end = +el.dataset.count;
+      let cur = 0; const step = Math.max(1, Math.round(end / 30));
+      const t = setInterval(() => {
+        cur += step; if (cur >= end) { cur = end; clearInterval(t); }
+        el.textContent = cur;
+      }, 28);
+      io.unobserve(el);
+    });
+  }, { threshold: 0.6 });
+  els.forEach(el => io.observe(el));
+})();
+
+/* ===== 플레이 가능한 데모 ===== */
+(function () {
+  const LEVELS = {
+    easy:   { rows: 9,  cols: 9,  mines: 10 },
+    medium: { rows: 16, cols: 16, mines: 40 },
+    hard:   { rows: 16, cols: 30, mines: 99 },
+  };
+  let config = LEVELS.easy;
+  let grid = [], revealedCount = 0, flagCount = 0;
+  let gameOver = false, firstClick = true, timerInterval = null, seconds = 0;
+
+  const boardEl = document.getElementById('board');
+  const mineCountEl = document.getElementById('mineCount');
+  const timerEl = document.getElementById('timer');
+  const messageEl = document.getElementById('message');
+  const resetBtn = document.getElementById('resetBtn');
+  const pad3 = n => String(Math.max(0, n)).padStart(3, '0');
+  const NB = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  const inB = (r, c) => r >= 0 && r < config.rows && c >= 0 && c < config.cols;
+
+  function init() {
+    clearInterval(timerInterval); timerInterval = null;
+    seconds = 0; timerEl.textContent = '000';
+    revealedCount = 0; flagCount = 0; gameOver = false; firstClick = true;
+    messageEl.textContent = ''; messageEl.className = 'demo-msg';
+    resetBtn.textContent = '🙂';
+    mineCountEl.textContent = pad3(config.mines);
+
+    grid = [];
+    for (let r = 0; r < config.rows; r++) {
+      const row = [];
+      for (let c = 0; c < config.cols; c++)
+        row.push({ mine: false, revealed: false, flagged: false, adjacent: 0, el: null });
+      grid.push(row);
+    }
+    const cw = config.cols > 20 ? 26 : 30;
+    boardEl.style.gridTemplateColumns = `repeat(${config.cols}, ${cw}px)`;
+    boardEl.innerHTML = '';
+    for (let r = 0; r < config.rows; r++)
+      for (let c = 0; c < config.cols; c++) {
+        const el = document.createElement('div');
+        el.className = 'cell';
+        el.style.width = cw + 'px'; el.style.height = cw + 'px';
+        el.dataset.r = r; el.dataset.c = c;
+        el.addEventListener('click', onLeft);
+        el.addEventListener('contextmenu', onRight);
+        el.addEventListener('dblclick', onChord);
+        grid[r][c].el = el;
+        boardEl.appendChild(el);
+      }
+  }
+
+  function placeMines(sr, sc) {
+    const forbid = new Set([sr + ',' + sc]);
+    for (const [dr, dc] of NB) { const nr = sr+dr, nc = sc+dc; if (inB(nr,nc)) forbid.add(nr+','+nc); }
+    let placed = 0;
+    while (placed < config.mines) {
+      const r = Math.floor(Math.random() * config.rows);
+      const c = Math.floor(Math.random() * config.cols);
+      if (grid[r][c].mine || forbid.has(r + ',' + c)) continue;
+      grid[r][c].mine = true; placed++;
+    }
+    for (let r = 0; r < config.rows; r++)
+      for (let c = 0; c < config.cols; c++) {
+        if (grid[r][c].mine) continue;
+        let n = 0;
+        for (const [dr, dc] of NB) { const nr = r+dr, nc = c+dc; if (inB(nr,nc) && grid[nr][nc].mine) n++; }
+        grid[r][c].adjacent = n;
+      }
+  }
+
+  function startTimer() {
+    if (timerInterval) return;
+    timerInterval = setInterval(() => { seconds++; timerEl.textContent = pad3(seconds); }, 1000);
+  }
+
+  function onLeft(e) {
+    if (gameOver) return;
+    const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+    const cell = grid[r][c];
+    if (cell.revealed || cell.flagged) return;
+    if (firstClick) { placeMines(r, c); firstClick = false; startTimer(); }
+    if (cell.mine) { reveal(cell, true); lose(cell); return; }
+    flood(r, c); checkWin();
+  }
+  function onRight(e) {
+    e.preventDefault();
+    if (gameOver) return;
+    const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+    const cell = grid[r][c];
+    if (cell.revealed) return;
+    cell.flagged = !cell.flagged;
+    flagCount += cell.flagged ? 1 : -1;
+    cell.el.classList.toggle('flagged', cell.flagged);
+    cell.el.textContent = cell.flagged ? '🚩' : '';
+    mineCountEl.textContent = pad3(config.mines - flagCount);
+  }
+  function onChord(e) {
+    if (gameOver) return;
+    const r = +e.currentTarget.dataset.r, c = +e.currentTarget.dataset.c;
+    const cell = grid[r][c];
+    if (!cell.revealed || cell.adjacent === 0) return;
+    let flags = 0;
+    for (const [dr, dc] of NB) { const nr = r+dr, nc = c+dc; if (inB(nr,nc) && grid[nr][nc].flagged) flags++; }
+    if (flags !== cell.adjacent) return;
+    for (const [dr, dc] of NB) {
+      const nr = r+dr, nc = c+dc; if (!inB(nr,nc)) continue;
+      const n = grid[nr][nc];
+      if (n.flagged || n.revealed) continue;
+      if (n.mine) { reveal(n, true); lose(n); return; }
+      flood(nr, nc);
+    }
+    checkWin();
+  }
+  function flood(r, c) {
+    const cell = grid[r][c];
+    if (cell.revealed || cell.flagged || cell.mine) return;
+    reveal(cell, false);
+    if (cell.adjacent === 0)
+      for (const [dr, dc] of NB) { const nr = r+dr, nc = c+dc; if (inB(nr,nc) && !grid[nr][nc].revealed) flood(nr, nc); }
+  }
+  function reveal(cell, hit) {
+    if (!cell.revealed) { cell.revealed = true; if (!cell.mine) revealedCount++; }
+    cell.el.classList.add('revealed'); cell.el.classList.remove('flagged');
+    if (cell.mine) { cell.el.classList.add(hit ? 'mine-hit' : 'mine'); cell.el.textContent = '💣'; }
+    else if (cell.adjacent > 0) { cell.el.textContent = cell.adjacent; cell.el.classList.add('n' + cell.adjacent); }
+    else cell.el.textContent = '';
+  }
+  function lose(hit) {
+    gameOver = true; clearInterval(timerInterval);
+    resetBtn.textContent = '😵';
+    messageEl.textContent = '💥 지뢰를 밟았습니다 — 다시 도전!';
+    messageEl.className = 'demo-msg lose';
+    for (let r = 0; r < config.rows; r++)
+      for (let c = 0; c < config.cols; c++) {
+        const cell = grid[r][c];
+        if (cell.mine && cell !== hit) reveal(cell, false);
+        else if (!cell.mine && cell.flagged) cell.el.textContent = '❌';
+      }
+  }
+  function checkWin() {
+    if (revealedCount === config.rows * config.cols - config.mines) {
+      gameOver = true; clearInterval(timerInterval);
+      resetBtn.textContent = '😎';
+      messageEl.textContent = `🎉 클리어! ${seconds}초 만에 지뢰밭을 정복했습니다`;
+      messageEl.className = 'demo-msg win';
+      for (let r = 0; r < config.rows; r++)
+        for (let c = 0; c < config.cols; c++) {
+          const cell = grid[r][c];
+          if (cell.mine && !cell.flagged) { cell.flagged = true; cell.el.classList.add('flagged'); cell.el.textContent = '🚩'; }
+        }
+      mineCountEl.textContent = '000';
+    }
+  }
+
+  document.querySelectorAll('.diff-pills button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.diff-pills button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      config = LEVELS[btn.dataset.level];
+      init();
+    });
+  });
+  resetBtn.addEventListener('click', init);
+  boardEl.addEventListener('contextmenu', e => e.preventDefault());
+  init();
+})();
+</script>
