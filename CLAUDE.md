@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 실행 및 검증
 
 - **실행**: HTML 파일을 브라우저로 직접 엽니다. `index.html`이 홈(게임 선택 허브). 서버 불필요 — `file://` 더블클릭만으로 완전히 동작해야 합니다(외부 CDN/네트워크 의존 금지).
-- **배포본**: https://goghyk-ui.github.io/minigamegroup/
+- **배포본**: https://youngkil-choi.github.io/minigame/
 - **문법 검증**: 테스트 프레임워크는 없습니다. 이 환경의 Git Bash에는 `jq`가 없으므로 **`node`로 검증**하세요. 인라인 `<script>`를 추출해 파싱 검사하는 방식(대화 이력의 `vm.Script` 스니펫 참고)과, `node -e "require('./.claude/settings.json')"` 식의 JSON 검증을 사용합니다.
 
 ## 아키텍처 (큰 그림)
@@ -27,6 +27,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 배포 및 자동 커밋 (중요)
 
-- `.claude/settings.json`에 **Stop 훅**이 있어, 턴 종료 시 작업 트리에 변경이 있으면 자동으로 `git add -A` → 커밋 → `origin/main` 푸시합니다. **별도 커밋을 수동으로 만들 필요는 보통 없습니다.**
-- `main` 푸시는 GitHub Pages 재빌드를 트리거하므로, 변경 후 약 1분 내 라이브 사이트에 반영됩니다.
-- 저장소는 **Public**입니다(무료 Pages 조건). `.claude/settings.json`도 커밋되어 공개되니 민감정보를 넣지 마세요.
+- 이 폴더는 상위 `CLAUDE` 폴더의 비공개 저장소(`youngkil-choi/workgroup`)에서 관리되고, 상위의 **Stop 훅**이 턴 종료 시 자동 커밋·푸시합니다. **별도 커밋을 수동으로 만들 필요는 보통 없습니다.**
+- 같은 훅이 `main`에서 이 폴더가 바뀐 것을 감지하면 이 폴더만 떼어 **공개 저장소 `youngkil-choi/minigame`의 `main`으로 배포**합니다(GitHub Pages, 약 1분 내 반영). 공개 저장소는 배포 전용이니 직접 수정하지 마세요 — 매번 덮어씌워집니다.
+- 이 폴더의 모든 파일(이 CLAUDE.md 포함)은 **공개**됩니다. 민감정보를 넣지 마세요.
